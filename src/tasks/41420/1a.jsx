@@ -1,143 +1,101 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-// Array of words for the game
-const words = [
-  "react", "tailwind", "shadcn", "javascript", "typescript",
-  "component", "hook", "state", "effect", "render",
-  "function", "array", "object", "string", "number",
-  "boolean", "null", "undefined", "promise", "async",
-  "await", "fetch", "api", "dom", "virtual",
-  "jsx", "css", "html", "module", "import",
-  "export", "default", "const", "let", "var",
-  "if", "else", "switch", "for", "while",
-  "map", "filter", "reduce", "find", "some",
-  "every", "includes", "push", "pop", "shift"
-];
-
+// Main App component
 export default function App() {
-  const [gameStarted, setGameStarted] = useState(false);
-  const [score, setScore] = useState(50);
-  const [scrollingWords, setScrollingWords] = useState([]);
-  const [userInput, setUserInput] = useState("");
-  const [speed, setSpeed] = useState(15);
-  const [currentSpeed, setCurrentSpeed] = useState(15);
-  const scrollRef = useRef(null);
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4 sm:p-8">
+      <Game />
+    </div>
+  );
+}
 
-  // Start or restart the game
+// Game component that contains all game logic
+function Game() {
+  const sentences = [
+    "The quick brown fox jumps over the lazy dog.",
+    "A journey of a thousand miles begins with a single step.",
+    "To be or not to be, that is the question."
+  ];
+  const [sentence, setSentence] = useState(sentences[0]);
+  const [time, setTime] = useState(15);
+  const [remainingTime, setRemainingTime] = useState(15);
+  const [userInput, setUserInput] = useState('');
+  const [score, setScore] = useState(0);
+  const [gameActive, setGameActive] = useState(false);
+  const timerRef = useRef(null);
+
+  // Function to start or restart the game
   const startGame = () => {
-    setGameStarted(true);
-    setScore(50);
-    setScrollingWords(shuffleArray(words).slice(0, 20));
-    setUserInput("");
-    setCurrentSpeed(15);
+    setSentence(sentences[Math.floor(Math.random() * sentences.length)]);
+    setRemainingTime(time);
+    setScore(0);
+    setGameActive(true);
+    timerRef.current = setInterval(() => {
+      setRemainingTime(prevTime => {
+        if (prevTime > 0) return prevTime - 1;
+        clearInterval(timerRef.current);
+        setGameActive(false);
+        return 0;
+      });
+    }, 1000);
   };
 
-  // Shuffle array function
-  const shuffleArray = (array) => {
-    return [...array].sort(() => Math.random() - 0.5);
-  };
-
-  // Handle user input
-  const handleInput = (e) => {
-    const input = e.target.value;
-    setUserInput(input);
-
-    // Check if the input matches any word in the scrolling text
-    const matchedWordIndex = scrollingWords.findIndex(word => word.startsWith(input));
-    if (matchedWordIndex !== -1 && scrollingWords[matchedWordIndex] === input) {
-      setScore(prevScore => prevScore + 10);
-      setScrollingWords(prevWords => prevWords.filter((_, index) => index !== matchedWordIndex));
-      setUserInput("");
+  // Handle word submission
+  const handleSubmit = () => {
+    const words = sentence.toLowerCase().split(' ');
+    const inputWord = userInput.trim().toLowerCase();
+    if (words.includes(inputWord)) {
+      setScore(prevScore => prevScore + 50);
+    } else {
+      setScore(prevScore => prevScore - 5);
     }
+    setUserInput('');
   };
 
-  // Handle backspace
-  const handleKeyDown = (e) => {
-    if (e.key === "Backspace") {
-      setScore(prevScore => Math.max(0, prevScore - 1));
-    }
-  };
-
-  // Update scrolling text position
+  // Cleanup for the timer
   useEffect(() => {
-    if (!gameStarted) return;
-
-    const interval = setInterval(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollLeft += 1;
-        if (scrollRef.current.scrollLeft >= scrollRef.current.scrollWidth - scrollRef.current.clientWidth) {
-          scrollRef.current.scrollLeft = 0;
-          setScore(prevScore => Math.max(0, prevScore - 5));
-          setScrollingWords(prevWords => prevWords.slice(1));
-        }
-      }
-    }, 1000 / (currentSpeed * 5)); // Adjust speed
-
-    return () => clearInterval(interval);
-  }, [gameStarted, currentSpeed]);
-
-  // Increase speed over time
-  useEffect(() => {
-    if (!gameStarted) return;
-
-    const interval = setInterval(() => {
-      setCurrentSpeed(prevSpeed => Math.min(50, prevSpeed + 1));
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [gameStarted]);
-
-  // End game when score reaches zero
-  useEffect(() => {
-    if (score === 0) {
-      setGameStarted(false);
-    }
-  }, [score]);
+    return () => clearInterval(timerRef.current);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 flex flex-col items-center justify-center">
-      <h1 className="text-3xl font-bold mb-4">Word Typing Hunt</h1>
-      <div className="w-full max-w-3xl">
-        <div className="flex justify-between items-center mb-4">
-          <div className="text-xl font-semibold">Score: {score}</div>
-          <Button onClick={startGame}>{gameStarted ? "Restart" : "Start"} Game</Button>
-        </div>
-        <div className="mb-4 flex items-center">
-          <span className="mr-2">Speed: {speed} wpm</span>
-          <Slider
-            min={10}
-            max={50}
-            step={1}
-            value={[speed]}
-            onValueChange={(value) => setSpeed(value[0])}
-            className="w-48"
-          />
-        </div>
-        <div
-          ref={scrollRef}
-          className="w-full h-16 bg-gray-800 text-white overflow-x-hidden whitespace-nowrap mb-4"
-        >
-          <div className="inline-block animate-scroll">
-            {scrollingWords.map((word, index) => (
-              <span key={index} className="mr-4 text-xs">
-                {word}
-              </span>
-            ))}
-          </div>
-        </div>
-        <Input
-          type="text"
-          value={userInput}
-          onChange={handleInput}
-          onKeyDown={handleKeyDown}
-          placeholder="Type the words here..."
-          className="w-full"
-          disabled={!gameStarted}
-        />
-      </div>
-    </div>
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle>Typing Hunt Game</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!gameActive ? (
+          <>
+            <Label>Select Game Time</Label>
+            <RadioGroup defaultValue="15" onValueChange={setTime} className="flex flex-col space-y-2">
+              <RadioGroupItem value="15" id="r15">15 Seconds</RadioGroupItem>
+              <RadioGroupItem value="30" id="r30">30 Seconds</RadioGroupItem>
+              <RadioGroupItem value="45" id="r45">45 Seconds</RadioGroupItem>
+            </RadioGroup>
+            <Button onClick={startGame}>Start Game</Button>
+          </>
+        ) : (
+          <>
+            <div className="text-xs mb-2">Time Left: {remainingTime}s</div>
+            <div className="text-2xl mb-4" style={{ fontSize: '12px' }}>{sentence}</div>
+            <Input 
+              value={userInput} 
+              onChange={(e) => setUserInput(e.target.value)} 
+              placeholder="Type a word from the sentence"
+              className="mb-2"
+            />
+            <Button onClick={handleSubmit} disabled={!userInput}>Submit</Button>
+            <div className="mt-4">Score: {score}</div>
+          </>
+        )}
+        {remainingTime === 0 && (
+          <div className="text-center mt-4">Game Over! Your score is {score}.</div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

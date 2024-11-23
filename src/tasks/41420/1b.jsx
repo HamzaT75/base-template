@@ -1,124 +1,120 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
-const words = [
-  "apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew", "kiwi", "lemon"
+// Sample sentences for the game
+const sentences = [
+  "The quick brown fox jumps over the lazy dog.",
+  "A journey of a thousand miles begins with a single step.",
+  "To be or not to be, that is the question.",
+  "All that glitters is not gold.",
+  "Where there's a will, there's a way.",
 ];
 
-function ScrollingText({ words, onWordExit, onCorrectWord }) {
-  const [position, setPosition] = useState(0);
-  const speedRef = useRef(15); // Start speed in words per minute
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPosition(prev => prev - 1); // Move text to left
-      const firstWord = words[0];
-      if (-position > firstWord.length * 6) { // Assuming each character is roughly 6px wide
-        onWordExit(firstWord);
-        onCorrectWord(firstWord); // Here, we simulate removal as if it was typed correctly for animation
-      }
-    }, 60000 / (speedRef.current * 100)); // Convert words per minute to ms per pixel
-
-    return () => clearInterval(interval);
-  }, [words, position, onWordExit, onCorrectWord]);
-
-  useEffect(() => {
-    const speedInterval = setInterval(() => {
-      if (speedRef.current < 50) {
-        speedRef.current += 1; // Increase speed by 1 word per minute every 10 seconds
-      }
-    }, 10000);
-    return () => clearInterval(speedInterval);
-  }, []);
-
-  return (
-    <div className="w-full bg-slate-800 text-white overflow-hidden" style={{fontSize: '12px'}}>
-      <div style={{ transform: `translateX(${position}px)`, whiteSpace: 'nowrap' }}>
-        {words.join(' ')}
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
-  const [gameWords, setGameWords] = useState([]);
-  const [inputValue, setInputValue] = useState('');
-  const [score, setScore] = useState(50);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [sentence, setSentence] = useState("");
+  const [time, setTime] = useState(15);
+  const [score, setScore] = useState(0);
+  const [input, setInput] = useState("");
+  const [gameState, setGameState] = useState("idle"); // idle, playing, ended
+  const [remainingTime, setRemainingTime] = useState(time);
 
-  useEffect(() => {
-    if (isPlaying) {
-      const gameInterval = setInterval(() => {
-        setTimeElapsed(prev => prev + 1);
-        if (score <= 0) {
-          setIsPlaying(false);
-          clearInterval(gameInterval);
-        }
-      }, 1000);
-
-      return () => clearInterval(gameInterval);
-    }
-  }, [isPlaying, score]);
-
+  // Function to start or restart the game
   const startGame = () => {
-    setGameWords(words.slice().sort(() => Math.random() - 0.5).slice(0, 20)); // Randomize and limit words
-    setInputValue('');
-    setScore(50);
-    setIsPlaying(true);
-    setTimeElapsed(0);
+    setSentence(sentences[Math.floor(Math.random() * sentences.length)]);
+    setScore(0);
+    setInput("");
+    setGameState("playing");
+    setRemainingTime(time);
   };
 
-  const handleWordExit = (word) => {
-    if (!inputValue.includes(word)) {
-      setScore(prev => prev - 5);
+  // Function to handle word submission
+  const submitWord = () => {
+    if (sentence.toLowerCase().includes(input.toLowerCase())) {
+      setScore((prevScore) => prevScore + 50);
+    } else {
+      setScore((prevScore) => Math.max(0, prevScore - 5));
     }
+    setInput("");
   };
 
-  const handleCorrectWord = (word) => {
-    setGameWords(prev => prev.filter(w => w !== word));
-    setScore(prev => prev + 10);
-  };
-
-  const onInputChange = (e) => {
-    const value = e.target.value;
-    setInputValue(value);
-    const lastWord = value.trim().split(' ').pop();
-    if (gameWords.includes(lastWord)) {
-      handleCorrectWord(lastWord);
-      setInputValue(value.replace(new RegExp(lastWord + '$'), ''));
+  // Effect to handle the timer
+  useEffect(() => {
+    let timer;
+    if (gameState === "playing" && remainingTime > 0) {
+      timer = setInterval(() => {
+        setRemainingTime((prevTime) => prevTime - 1);
+      }, 1000);
+    } else if (remainingTime === 0 && gameState === "playing") {
+      setGameState("ended");
     }
-  };
-
-  const onBackspace = () => {
-    setScore(prev => prev - 1);
-  };
+    return () => clearInterval(timer);
+  }, [gameState, remainingTime]);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 p-4 sm:p-8">
-      <div className="mb-4 text-center">
-        <Button onClick={startGame} disabled={isPlaying}>Start Game</Button>
-        <div className="mt-2 text-lg">Score: {score}</div>
-      </div>
-      {isPlaying && (
-        <>
-          <ScrollingText 
-            words={gameWords} 
-            onWordExit={handleWordExit}
-            onCorrectWord={handleCorrectWord}
-          />
-          <div className="mt-auto">
-            <Input 
-              value={inputValue} 
-              onChange={onInputChange}
-              onKeyDown={(e) => e.key === 'Backspace' && onBackspace()}
-              placeholder="Type the words here..." 
-              className="w-full mb-4"
-            />
-          </div>
-        </>
-      )}
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">
+            Text Typing Hunt Game
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {gameState === "idle" && (
+            <div className="space-y-4">
+              <RadioGroup
+                defaultValue="15"
+                onValueChange={(value) => setTime(parseInt(value))}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="15" id="r1" />
+                  <Label htmlFor="r1">15 seconds</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="30" id="r2" />
+                  <Label htmlFor="r2">30 seconds</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="45" id="r3" />
+                  <Label htmlFor="r3">45 seconds</Label>
+                </div>
+              </RadioGroup>
+              <Button onClick={startGame} className="w-full">
+                Start Game
+              </Button>
+            </div>
+          )}
+          {gameState === "playing" && (
+            <div className="space-y-4">
+              <p className="text-sm font-medium">{sentence}</p>
+              <p className="text-lg font-bold">Time: {remainingTime}s</p>
+              <p className="text-lg font-bold">Score: {score}</p>
+              <div className="flex space-x-2">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Type a word"
+                />
+                <Button onClick={submitWord}>Submit</Button>
+              </div>
+            </div>
+          )}
+          {gameState === "ended" && (
+            <div className="space-y-4">
+              <p className="text-xl font-bold text-center">Game Over!</p>
+              <p className="text-lg font-medium text-center">
+                Final Score: {score}
+              </p>
+              <Button onClick={startGame} className="w-full">
+                Play Again
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
