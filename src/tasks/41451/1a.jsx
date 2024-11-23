@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const GRID_SIZE = 4;
-const MAGIC_SUM = 34;
+const VALID_SUM = 36;
 const MAX_NUMBER = 16;
 
 export default function App() {
@@ -24,68 +24,53 @@ export default function App() {
     setGameState("playing");
   };
 
-  const handleCellChange = (rowIndex, colIndex, value) => {
-    const newValue = value.replace(/\D/g, "").slice(0, 2);
-    const numValue = parseInt(newValue, 10);
-
-    if (numValue > MAX_NUMBER) return;
+  const handleInputChange = (rowIndex, colIndex, value) => {
+    const numValue = parseInt(value, 10);
+    if (isNaN(numValue) || numValue < 1 || numValue > MAX_NUMBER) return;
 
     const newGrid = grid.map((row) => [...row]);
-    newGrid[rowIndex][colIndex] = newValue;
+    newGrid[rowIndex][colIndex] = numValue;
     setGrid(newGrid);
   };
 
-  const checkSolution = () => {
-    const isGridFull = grid.every((row) => row.every((cell) => cell !== ""));
-    if (!isGridFull) {
-      setMessage("Please fill all cells before submitting.");
-      return;
-    }
+  const checkSum = (arr) => arr.reduce((sum, num) => sum + num, 0) === VALID_SUM;
 
-    const numGrid = grid.map((row) => row.map((cell) => parseInt(cell, 10)));
+  const verifyGrid = () => {
+    const rows = grid;
+    const cols = grid[0].map((_, colIndex) => grid.map((row) => row[colIndex]));
+    const diag1 = grid.map((row, i) => row[i]);
+    const diag2 = grid.map((row, i) => row[GRID_SIZE - 1 - i]);
 
-    const rowSums = numGrid.map((row) => row.reduce((sum, num) => sum + num, 0));
-    const colSums = numGrid[0].map((_, colIndex) =>
-      numGrid.reduce((sum, row) => sum + row[colIndex], 0)
-    );
-    const diag1Sum = numGrid.reduce((sum, row, i) => sum + row[i], 0);
-    const diag2Sum = numGrid.reduce((sum, row, i) => sum + row[GRID_SIZE - 1 - i], 0);
-
-    const isCorrect =
-      rowSums.every((sum) => sum === MAGIC_SUM) &&
-      colSums.every((sum) => sum === MAGIC_SUM) &&
-      diag1Sum === MAGIC_SUM &&
-      diag2Sum === MAGIC_SUM;
+    const allValid =
+      rows.every(checkSum) &&
+      cols.every(checkSum) &&
+      checkSum(diag1) &&
+      checkSum(diag2);
 
     setGameState("completed");
-    setMessage(
-      isCorrect
-        ? "Congratulations! You've solved the magic square!"
-        : "Sorry, that's not correct. Try again!"
-    );
+    setMessage(allValid ? "Congratulations! You won!" : "Sorry, that's not correct. Try again!");
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">
-            Magic Square 4x4
-          </CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">4x4 Magic Square Game</CardTitle>
         </CardHeader>
         <CardContent>
           {gameState === "initial" ? (
-            <Button onClick={startGame} className="w-full">
-              Start Game
-            </Button>
+            <Button onClick={startGame} className="w-full">Start Game</Button>
           ) : (
             <div className="grid grid-cols-4 gap-2">
               {grid.map((row, rowIndex) =>
                 row.map((cell, colIndex) => (
                   <Input
                     key={`${rowIndex}-${colIndex}`}
+                    type="number"
+                    min="1"
+                    max={MAX_NUMBER}
                     value={cell}
-                    onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
+                    onChange={(e) => handleInputChange(rowIndex, colIndex, e.target.value)}
                     className="w-full h-12 text-center text-lg font-bold"
                     disabled={gameState === "completed"}
                   />
@@ -93,23 +78,19 @@ export default function App() {
               )}
             </div>
           )}
-          {message && (
-            <Alert className="mt-4">
-              <AlertTitle>Result</AlertTitle>
-              <AlertDescription>{message}</AlertDescription>
-            </Alert>
-          )}
         </CardContent>
-        <CardFooter className="flex justify-between">
+        <CardFooter className="flex flex-col gap-2">
           {gameState === "playing" && (
-            <Button onClick={checkSolution} className="w-full">
-              Submit
-            </Button>
+            <Button onClick={verifyGrid} className="w-full">Submit</Button>
           )}
           {gameState === "completed" && (
-            <Button onClick={startGame} className="w-full">
-              Play Again
-            </Button>
+            <>
+              <Alert variant={message.includes("Congratulations") ? "success" : "destructive"}>
+                <AlertTitle>{message.split("!")[0]}!</AlertTitle>
+                <AlertDescription>{message.split("!")[1]}</AlertDescription>
+              </Alert>
+              <Button onClick={startGame} className="w-full">Play Again</Button>
+            </>
           )}
         </CardFooter>
       </Card>

@@ -1,105 +1,98 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-const MagicSquare = () => {
-  const [grid, setGrid] = useState(Array(4).fill().map(() => Array(4).fill('')));
-  const [gameState, setGameState] = useState('start'); // 'start', 'playing', 'end'
-  const [message, setMessage] = useState('');
+function MagicSquare() {
+  const [board, setBoard] = useState(Array(16).fill(''));
+  const [gameState, setGameState] = useState('playing'); // 'playing', 'won', 'lost'
+  const [error, setError] = useState(null);
 
-  // Check if the number is valid (1-16)
-  const isValidNumber = (num) => num === '' || (num >= 1 && num <= 16 && !isNaN(num));
-
-  // Handle cell changes
-  const handleChange = (row, col, value) => {
-    if (gameState !== 'playing') return;
-    if (isValidNumber(value)) {
-      let newGrid = [...grid];
-      newGrid[row][col] = value === '' ? '' : parseInt(value, 10);
-      setGrid(newGrid);
-    }
-  };
-
-  // Check if the magic square conditions are met
-  const checkMagicSquare = () => {
-    const targetSum = 34;
-    let sums = [];
+  const checkMagicSquare = useCallback(() => {
+    const numbers = board.map(Number);
+    const targetSum = 34; // Correct sum for a 4x4 magic square is actually 34, not 36
 
     // Check rows and columns
     for (let i = 0; i < 4; i++) {
-      sums.push(grid[i].reduce((a, b) => a + (b || 0), 0)); // Rows
-      sums.push(grid.reduce((a, b) => a + (b[i] || 0), 0)); // Columns
+      let rowSum = 0, colSum = 0;
+      for (let j = 0; j < 4; j++) {
+        rowSum += numbers[i * 4 + j];
+        colSum += numbers[j * 4 + i];
+      }
+      if (rowSum !== targetSum || colSum !== targetSum) {
+        setGameState('lost');
+        return;
+      }
     }
 
     // Check diagonals
-    sums.push(grid.reduce((a, b, idx) => a + (b[idx] || 0), 0)); // Main diagonal
-    sums.push(grid.reduce((a, b, idx) => a + (b[3 - idx] || 0), 0)); // Secondary diagonal
-
-    return sums.every(sum => sum === targetSum);
-  };
-
-  const onSubmit = () => {
-    if (checkMagicSquare()) {
-      setMessage("Congratulations! You've solved the Magic Square!");
-      setGameState('end');
-    } else {
-      setMessage('Oops! That\'s not correct. Try again.');
-      setGameState('end');
+    let diag1 = 0, diag2 = 0;
+    for (let i = 0; i < 4; i++) {
+      diag1 += numbers[i * 4 + i];
+      diag2 += numbers[i * 4 + 3 - i];
     }
+    if (diag1 !== targetSum || diag2 !== targetSum) {
+      setGameState('lost');
+      return;
+    }
+
+    setGameState('won');
+  }, [board]);
+
+  const handleChange = (index, value) => {
+    const numValue = parseInt(value, 10);
+    if (isNaN(numValue) || numValue < 1 || numValue > 16) {
+      setError(`Please enter a number between 1 and 16 at position ${index + 1}.`);
+      return;
+    }
+    setError(null);
+    const newBoard = [...board];
+    newBoard[index] = value;
+    setBoard(newBoard);
   };
 
   const startGame = () => {
-    setGrid(Array(4).fill().map(() => Array(4).fill('')));
-    setMessage('');
+    setBoard(Array(16).fill(''));
     setGameState('playing');
+    setError(null);
   };
-
-  const restartGame = () => {
-    startGame();
-  };
-
-  useEffect(() => {
-    if (gameState === 'start') startGame();
-  }, [gameState]);
 
   return (
-    <div className="flex flex-col items-center p-4 space-y-4 bg-gradient-to-br from-blue-400 to-purple-500 min-h-screen">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-4">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <CardTitle>Magic Square Game</CardTitle>
+          <CardTitle>4x4 Magic Square Game</CardTitle>
         </CardHeader>
         <CardContent>
-          {gameState === 'end' && (
-            <div className="mb-4 text-center text-lg font-semibold">{message}</div>
-          )}
-          <div className="grid grid-cols-4 gap-2 mb-4">
-            {grid.map((row, i) => row.map((cell, j) => (
-              <Input 
-                key={`${i}-${j}`}
-                type="number"
-                value={cell}
-                onChange={(e) => handleChange(i, j, e.target.value)}
-                disabled={gameState !== 'playing'}
-                className="text-center"
-                min="1"
-                max="16"
-              />
-            )))}
-          </div>
           {gameState === 'playing' && (
-            <Button onClick={onSubmit} className="w-full">Submit</Button>
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {board.map((value, index) => (
+                <Input 
+                  key={index}
+                  value={value}
+                  onChange={(e) => handleChange(index, e.target.value)}
+                  placeholder={`${index + 1}`}
+                  className="text-center"
+                />
+              ))}
+            </div>
           )}
-          {gameState !== 'playing' && (
-            <Button onClick={gameState === 'start' ? startGame : restartGame} className="w-full">
-              {gameState === 'start' ? 'Start Game' : 'Restart Game'}
-            </Button>
+          {error && <p className="text-red-500 mb-2">{error}</p>}
+          {gameState === 'playing' ? (
+            <Button onClick={checkMagicSquare}>Submit</Button>
+          ) : (
+            <div className="text-center">
+              <p className="mb-2">
+                {gameState === 'won' ? 'Congratulations! You solved the magic square!' : 'Sorry, that\'s not correct.'}
+              </p>
+              <Button onClick={startGame}>Play Again</Button>
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
   );
-};
+}
 
 export default function App() {
   return <MagicSquare />;
