@@ -1,205 +1,128 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 
-// Array of words to use in the game
-const words = [
-  "Apple", "Banana", "Cherry", "Date", "Elderberry",
-  "Fig", "Grape", "Honeydew", "Kiwi", "Lemon",
-  "Mango", "Nectarine", "Orange", "Papaya", "Quince",
-  "Raspberry", "Strawberry", "Tangerine", "Ugli", "Watermelon"
+const wordsList = [
+  'Apple', 'Banana', 'Cherry', 'Date', 'Elderberry', 'Fig', 'Grape', 'Honeydew',
+  'Kiwi', 'Lemon', 'Mango', 'Nectarine', 'Orange', 'Papaya', 'Quince', 'Raspberry',
+  'Strawberry', 'Tangerine', 'Ugli', 'Vanilla', 'Watermelon', 'Xigua', 'Yam', 'Zucchini'
 ];
 
-// Function to get random words
-const getRandomWords = (count) => {
-  return [...words].sort(() => 0.5 - Math.random()).slice(0, count);
-};
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
 
-// Game component
-const Game = ({ rows, cols, displayTime, guessTime }) => {
-  const [gameState, setGameState] = useState("initial");
-  const [initialGrid, setInitialGrid] = useState([]);
-  const [currentGrid, setCurrentGrid] = useState([]);
-  const [selectedCells, setSelectedCells] = useState([]);
-  const [result, setResult] = useState({ correct: 0, missed: 0 });
-
-  // Initialize the game
-  useEffect(() => {
-    if (gameState === "started") {
-      const newGrid = Array(rows).fill().map(() => getRandomWords(cols));
-      setInitialGrid(newGrid);
-      setCurrentGrid(newGrid);
-      
-      // Hide words after displayTime
-      setTimeout(() => {
-        const updatedGrid = newGrid.map(row =>
-          row.map(word => Math.random() < 0.5 ? word : getRandomWords(1)[0])
-        );
-        setCurrentGrid(updatedGrid);
-        setGameState("guessing");
-        
-        // End game after guessTime
-        setTimeout(() => {
-          setGameState("ended");
-          calculateResult();
-        }, guessTime * 1000);
-      }, displayTime * 1000);
-    }
-  }, [gameState, rows, cols, displayTime, guessTime]);
-
-  // Handle cell click
-  const handleCellClick = (rowIndex, colIndex) => {
-    if (gameState !== "guessing") return;
-    const cellKey = `${rowIndex}-${colIndex}`;
-    setSelectedCells(prev =>
-      prev.includes(cellKey) ? prev.filter(key => key !== cellKey) : [...prev, cellKey]
-    );
-  };
-
-  // Calculate result
-  const calculateResult = () => {
-    let correct = 0;
-    let missed = 0;
-    initialGrid.forEach((row, rowIndex) => {
-      row.forEach((word, colIndex) => {
-        const cellKey = `${rowIndex}-${colIndex}`;
-        if (word === currentGrid[rowIndex][colIndex]) {
-          if (selectedCells.includes(cellKey)) {
-            correct++;
-          } else {
-            missed++;
-          }
-        }
-      });
-    });
-    setResult({ correct, missed });
-  };
-
-  // Render grid
-  const renderGrid = (grid) => (
-    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-      {grid.map((row, rowIndex) =>
-        row.map((word, colIndex) => (
-          <Button
-            key={`${rowIndex}-${colIndex}`}
-            variant={selectedCells.includes(`${rowIndex}-${colIndex}`) ? "secondary" : "outline"}
-            className="h-20 text-sm sm:text-base"
-            onClick={() => handleCellClick(rowIndex, colIndex)}
-          >
-            {word}
-          </Button>
-        ))
-      )}
+function WordGrid({ words, onWordClick, isSelectable }) {
+  return (
+    <div className="grid grid-cols-5 gap-4 sm:grid-cols-2">
+      {words.map((word, index) => (
+        <Card key={index} className="cursor-pointer" onClick={() => isSelectable && onWordClick(word)}>
+          <CardContent className="p-4 text-center">
+            <p>{word}</p>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
+}
 
-  return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Word Remembering Game</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {gameState === "initial" && (
-          <Button onClick={() => setGameState("started")}>Start Game</Button>
-        )}
-        {gameState === "started" && renderGrid(initialGrid)}
-        {gameState === "guessing" && renderGrid(currentGrid)}
-        {gameState === "ended" && (
-          <div>
-            <p>Correct: {result.correct}</p>
-            <p>Missed: {result.missed}</p>
-            {result.missed === 0 && <p className="font-bold">Congratulations! You won!</p>}
-          </div>
-        )}
-      </CardContent>
-      <CardFooter>
-        {gameState === "guessing" && (
-          <Button onClick={() => { setGameState("ended"); calculateResult(); }}>Submit</Button>
-        )}
-      </CardFooter>
-    </Card>
-  );
-};
-
-// Main App component
 export default function App() {
-  const [rows, setRows] = useState(3);
-  const [cols, setCols] = useState(3);
+  const [gridSize, setGridSize] = useState({ rows: 3, cols: 3 });
   const [displayTime, setDisplayTime] = useState(7);
   const [guessTime, setGuessTime] = useState(7);
-  const [key, setKey] = useState(0);
+  const [words, setWords] = useState([]);
+  const [gamePhase, setGamePhase] = useState('setup'); // 'setup', 'display', 'guess', 'end'
+  const [selectedWords, setSelectedWords] = useState([]);
+  const [correctCount, setCorrectCount] = useState(0);
 
-  // Reset game
+  const startGame = useCallback(() => {
+    const totalCells = gridSize.rows * gridSize.cols;
+    const halfWords = Math.floor(totalCells / 2);
+    let newWords = shuffle([...wordsList]).slice(0, totalCells);
+    setWords(newWords);
+    setGamePhase('display');
+    setSelectedWords([]);
+
+    // Display words for set time
+    setTimeout(() => {
+      setWords(currentWords => {
+        const toKeep = new Set(shuffle(currentWords).slice(0, halfWords));
+        return shuffle([...Array.from(toKeep), ...shuffle(wordsList).slice(0, totalCells - halfWords)]);
+      });
+      setGamePhase('guess');
+    }, displayTime * 1000);
+
+    // End guessing phase
+    setTimeout(() => {
+      const correct = selectedWords.filter(word => newWords.includes(word)).length;
+      setCorrectCount(correct);
+      setGamePhase('end');
+    }, (displayTime + guessTime) * 1000);
+  }, [displayTime, guessTime, gridSize.rows, gridSize.cols, selectedWords]);
+
   const resetGame = () => {
-    setRows(3);
-    setCols(3);
-    setDisplayTime(7);
-    setGuessTime(7);
-    setKey(prevKey => prevKey + 1);
+    setGamePhase('setup');
+    setWords([]);
+    setCorrectCount(0);
+  };
+
+  const handleWordClick = (word) => {
+    if (!selectedWords.includes(word)) {
+      setSelectedWords(prev => [...prev, word]);
+    } else {
+      setSelectedWords(prev => prev.filter(w => w !== word));
+    }
   };
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-4">Word Remembering Game</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        <div>
-          <Label htmlFor="rows">Rows (2-5)</Label>
-          <Input
-            id="rows"
-            type="number"
-            min="2"
-            max="5"
-            value={rows}
-            onChange={(e) => setRows(Number(e.target.value))}
-          />
-        </div>
-        <div>
-          <Label htmlFor="cols">Columns (2-5)</Label>
-          <Input
-            id="cols"
-            type="number"
-            min="2"
-            max="5"
-            value={cols}
-            onChange={(e) => setCols(Number(e.target.value))}
-          />
-        </div>
-        <div>
-          <Label htmlFor="displayTime">Display Time (1-10 seconds)</Label>
-          <Slider
-            id="displayTime"
-            min={1}
-            max={10}
-            step={1}
-            value={[displayTime]}
-            onValueChange={(value) => setDisplayTime(value[0])}
-          />
-          <span>{displayTime} seconds</span>
-        </div>
-        <div>
-          <Label htmlFor="guessTime">Guess Time (3-10 seconds)</Label>
-          <Slider
-            id="guessTime"
-            min={3}
-            max={10}
-            step={1}
-            value={[guessTime]}
-            onValueChange={(value) => setGuessTime(value[0])}
-          />
-          <span>{guessTime} seconds</span>
-        </div>
-      </div>
-      <Button onClick={resetGame} className="mb-4">Reset</Button>
-      <Game
-        key={key}
-        rows={rows}
-        cols={cols}
-        displayTime={displayTime}
-        guessTime={guessTime}
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Word Memory Game</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {gamePhase === 'setup' && (
+            <>
+              <div className="mb-4">
+                <Label>Grid Size (Rows x Columns)</Label>
+                <div className="flex gap-2">
+                  <Input type="number" min="2" max="5" value={gridSize.rows} onChange={e => setGridSize(prev => ({...prev, rows: e.target.value}))} />
+                  <Input type="number" min="2" max="5" value={gridSize.cols} onChange={e => setGridSize(prev => ({...prev, cols: e.target.value}))} />
+                </div>
+              </div>
+              <div className="mb-4">
+                <Label>Display Time (1-10 seconds)</Label>
+                <Input type="number" min="1" max="10" value={displayTime} onChange={e => setDisplayTime(Number(e.target.value))} />
+              </div>
+              <div className="mb-4">
+                <Label>Guess Time (3-10 seconds)</Label>
+                <Input type="number" min="3" max="10" value={guessTime} onChange={e => setGuessTime(Number(e.target.value))} />
+              </div>
+              <Button onClick={startGame}>Start Game</Button>
+            </>
+          )}
+          {gamePhase !== 'setup' && (
+            <>
+              <WordGrid words={words} onWordClick={handleWordClick} isSelectable={gamePhase === 'guess'} />
+              {gamePhase === 'end' && (
+                <div className="mt-4 text-center">
+                  {correctCount === Math.floor((gridSize.rows * gridSize.cols) / 2) ? 
+                    <p className="text-green-500">You won! You got all words correct!</p> :
+                    <p>You got {correctCount} out of {Math.floor((gridSize.rows * gridSize.cols) / 2)} correct.</p>
+                  }
+                  <Button onClick={resetGame}>Reset Game</Button>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
