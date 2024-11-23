@@ -38,7 +38,6 @@ export default function App() {
   // Initialize game
   const startGame = () => {
     const newColors = shuffleArray([...COLORS, ...COLORS, ...COLORS].slice(0, 9));
-    // console.log("Colors array at start:", newColors); // Debug here
     setColors(newColors);
     setGameState("memorize");
     setTimer(5);
@@ -72,14 +71,12 @@ export default function App() {
     let interval;
     if (gameState === "memorize" && timer > 0) {
       interval = setInterval(() => setTimer(timer - 1), 1000);
-    //   console.log("Game State:", gameState, "isHidden:", gameState === "select");
     } else if (gameState === "memorize" && timer === 0) {
       setGameState("select");
       setTargetColors(shuffleArray(COLORS.slice(0, 2)));
       setTimer(10);
     } else if (gameState === "select" && timer > 0) {
       interval = setInterval(() => setTimer(timer - 1), 1000);
-    //   console.log("Game State:", gameState, "isHidden:", gameState === "select");
     } else if (gameState === "select" && timer === 0) {
       calculateScore();
       setGameState("result");
