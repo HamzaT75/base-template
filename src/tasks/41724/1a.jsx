@@ -1,102 +1,93 @@
 import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const toolsList = [
-  "Hammer", "Screwdriver", "Wrench", "Drill", "Saw", "Tape Measure", "Pliers", "Level"
+const tools = [
+  "Screw driver", "Hammer", "Saw", "Level", "Measuring Tape", "Scissors", "Paper"
 ];
 
-const projects = {
-  "Hammer": ["Build a birdhouse", "Hang a picture frame"],
-  "Screwdriver": ["Assemble furniture", "Tighten loose screws around the house"],
-  "Wrench": ["Fix a leaky faucet", "Assemble a bicycle"],
-  "Drill": ["Install shelves", "Make holes for wiring"],
-  "Saw": ["Cut wood for a DIY shelf", "Create custom wooden signs"],
-  "Tape Measure": ["Measure for custom furniture", "Plan room layouts"],
-  "Pliers": ["Jewelry making", "Wire bending for electronics"],
-  "Level": ["Ensure picture frames are straight", "Install tiles"],
-};
+const projects = [
+  { name: "Chair", difficulty: "Medium", tools: ["Screw driver", "Hammer", "Saw"] },
+  { name: "Table", difficulty: "Hard", tools: ["Screw driver", "Saw", "Level", "Measuring Tape"] },
+  { name: "Picture Frame", difficulty: "Easy", tools: ["Saw", "Hammer", "Scissors", "Paper"] },
+  { name: "Radio", difficulty: "Hard", tools: ["Screw driver", "Scissors"] },
+  { name: "Window", difficulty: "Medium", tools: ["Screw driver", "Level", "Measuring Tape", "Saw"] },
+];
 
-function ToolSelector({ tools, onSelect }) {
+function ToolCheckbox({ tool, checked, onChange }) {
   return (
-    <div className="grid sm:grid-cols-2 gap-4">
-      {tools.map(tool => (
-        <div key={tool} className="flex items-center">
-          <Checkbox 
-            id={tool} 
-            onChange={(e) => onSelect(tool, e.target.checked)}
-          />
-          <Label htmlFor={tool} className="ml-2">{tool}</Label>
-        </div>
-      ))}
+    <div className="flex items-center space-x-2">
+      <Checkbox id={tool} checked={checked} onChange={onChange} />
+      <Label htmlFor={tool}>{tool}</Label>
     </div>
   );
 }
 
-function ProjectList({ projects }) {
+function ProjectCard({ project }) {
   return (
-    <div>
-      {projects.map((project, index) => (
-        <Card key={index} className="mb-4">
-          <CardHeader>
-            <CardTitle>{project}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription>
-              A fun project you can do with your selected tools!
-            </CardDescription>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <Card className="mb-4">
+      <CardHeader>
+        <CardTitle>{project.name}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Difficulty: {project.difficulty}</p>
+        <p>Tools Required: {project.tools.join(', ')}</p>
+      </CardContent>
+    </Card>
   );
 }
 
 export default function App() {
-  const [selectedTools, setSelectedTools] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTools, setSelectedTools] = useState(new Set());
 
-  const handleToolSelection = (tool, isSelected) => {
-    setSelectedTools(prev => 
-      isSelected ? [...prev, tool] : prev.filter(t => t !== tool)
-    );
+  const toggleTool = (tool) => {
+    const newSelectedTools = new Set(selectedTools);
+    if (newSelectedTools.has(tool)) {
+      newSelectedTools.delete(tool);
+    } else {
+      newSelectedTools.add(tool);
+    }
+    setSelectedTools(newSelectedTools);
   };
 
-  const filteredProjects = Object.entries(projects).filter(([tool]) => 
-    selectedTools.includes(tool) && 
-    (tool.toLowerCase().includes(searchTerm.toLowerCase()) || 
-     projects[tool].some(project => project.toLowerCase().includes(searchTerm.toLowerCase())))
-  ).flatMap(([_, value]) => value);
+  const matchingProjects = projects.filter(project => 
+    project.tools.every(tool => selectedTools.has(tool))
+  );
+
+  const resetTools = () => {
+    setSelectedTools(new Set());
+  };
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4 text-center">DIY Project Recommender</h1>
-      <div className="mb-4">
-        <Input 
-          placeholder="Search for tools or projects..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full sm:w-1/2"
-        />
-      </div>
-      <ToolSelector tools={toolsList} onSelect={handleToolSelection} />
-      <div className="mt-6">
-        <h2 className="text-xl mb-4">Recommended Projects:</h2>
-        {filteredProjects.length > 0 ? (
-          <ProjectList projects={filteredProjects} />
+    <div className="container mx-auto p-4 sm:p-6">
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Select Your Tools</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+          {tools.map(tool => (
+            <ToolCheckbox 
+              key={tool} 
+              tool={tool} 
+              checked={selectedTools.has(tool)} 
+              onChange={() => toggleTool(tool)} 
+            />
+          ))}
+        </CardContent>
+        <Button onClick={resetTools} className="mt-4">Reset Tools</Button>
+      </Card>
+
+      <div>
+        <h2 className="text-xl font-bold mb-4">Projects You Can Make:</h2>
+        {matchingProjects.length > 0 ? (
+          matchingProjects.map((project, idx) => (
+            <ProjectCard key={idx} project={project} />
+          ))
         ) : (
-          <p className="text-gray-500">No projects match your selected tools or search.</p>
+          <p>No projects match your selected tools.</p>
         )}
       </div>
-      <Button 
-        onClick={() => setSelectedTools([])} 
-        className="mt-4 w-full sm:w-auto"
-      >
-        Reset Selection
-      </Button>
     </div>
   );
 }
